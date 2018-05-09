@@ -5,10 +5,13 @@
 #include <Servo.h>
 #include "Infrarrojo.h" 
 
+int led1 = 14;
+int led2 = 15;
+
 Infrarrojo infraInterIzq (13, 400);
-Infrarrojo infraInterDer (11, 400);
-Infrarrojo infraExterIzq (8, 300);
-Infrarrojo infraExterDer (9, 300);
+Infrarrojo infraInterDer (11, 350);
+Infrarrojo infraExterIzq (8, 180);
+Infrarrojo infraExterDer (9, 180);
 
 DCMotor motor_der (4, 17, 16); 
 DCMotor motor_izq (5, 30, 41); 
@@ -26,10 +29,11 @@ float errorViejo;
 float deri;
 float integral;
 
-float kp = 0.4;
-float kd = 0.05;
+float kp = 0.45;
+float kd = 0;
 float ki = 0;
 float pid;
+//float pid_i, pid_d;
 
 
 // FIN PID
@@ -47,16 +51,17 @@ void giro_izquierda() //funcion utilizada para la interseccion izquierda (primer
   while (!infraInterIzq.lee_blanco() && !infraInterDer.lee_blanco() && !infraExterIzq.lee_blanco() && !infraExterDer.lee_blanco());
   
  
-  motor_izq.setSpeed(-45); 
+  motor_izq.setSpeed(-50); 
   motor_der.setSpeed(56); 
-  delay (500);
+  delay (200);
   while (infraInterIzq.lee_blanco()); //la funcion se termina en el momento que el sensor interno izquierdo deje de leer blanco
 }
 
 void giro_derecha() { //funcion utilizada para la interseccion derecha (segunda interseccion)
   motor_izq.setSpeed(56);
-  motor_der.setSpeed(-48);
-  delay(700);
+  motor_der.setSpeed(-52);
+  delay(500);
+  while (infraInterIzq.lee_negro());
   while (infraInterIzq.lee_blanco());
 }
 
@@ -82,10 +87,10 @@ void giro_atras () //funcion para que el robot de la vuelta
    motor_izq.setSpeed (-30);
    motor_der.setSpeed (-30);
    delay (500); // el robot cierrra la puerta y retrocede por 600 milisegundos
-   motor_izq.setSpeed(-50); 
-   motor_der.setSpeed(65); 
+   motor_izq.setSpeed(-45); //valor original 60 
+   motor_der.setSpeed(53); //valor original 60
    while (infraInterIzq.lee_blanco()); //el robot realizara un giro sobre su mismo eje hasta que el sensor interno izquierdo deje de leer blanco y luego vuelve a seguidor
-  
+   while (infraExterIzq.lee_negro());
   }
 
 void descargar_pelotitas() //funcion para descargar pelotitas
@@ -108,7 +113,7 @@ void descargar_pelotitas() //funcion para descargar pelotitas
   }
 void fPID(){
   errorViejo = errorActual;
-  if (infraExterIzq.lee_negro()  ||  infraExterDer.lee_negro() )   { //cuando cualquiera de los dos infrarojos externos lean negro llama a la funcion interseccion
+  if ((infraExterIzq.lee_negro() && interIzq )  ||(  infraExterDer.lee_negro() && !interIzq) )   { //cuando cualquiera de los dos infrarojos externos lean negro llama a la funcion interseccion
     interseccion();
   }
   else if (digitalRead(sensor_choque) == LOW || digitalRead(sensor_choque2) == LOW) { 
@@ -120,20 +125,36 @@ void fPID(){
    }
   }
   if(infraInterIzq.lee_negro() && infraInterDer.lee_blanco() ){
+    digitalWrite (led2, LOW);
+    digitalWrite (led1, HIGH);
     errorActual = -infraInterIzq.diff();
   }
   else if (infraInterIzq.lee_blanco() && infraInterDer.lee_negro()){
+    digitalWrite (led1, LOW);
+    digitalWrite (led2, HIGH);
     errorActual = infraInterDer.diff();
   }
   else if (infraInterIzq.lee_blanco() && infraInterDer.lee_blanco()){
+    digitalWrite (led1, LOW);
+    digitalWrite (led1, LOW);
     errorActual = 0;
   }
   deri = errorActual - errorViejo;
   integral += errorActual;
 
+  /*pid_i = pid;
+  pid_d = -pid;
+
+  if(pid_d < 0){
+    pid_d *= 0.75;
+  }
+  else if(pid_i < 0){
+    pid_i *= 0.75;
+  }*/
+  
   pid = kp * errorActual + kd * deri + ki * integral;
-  int vel_der = 42 - pid; //valor original 50
-  int vel_izq = 40 + pid;
+  int vel_der = 50 - pid; //valor original 50
+  int vel_izq = 43 + pid;
 
   
   motor_der.setSpeed(vel_der);
@@ -144,6 +165,8 @@ void fPID(){
 
 
 void setup() {
+  pinMode (led1, OUTPUT);
+  pinMode (led2, OUTPUT);
   pinMode (sensor_choque, INPUT);
   pinMode (sensor_choque2, INPUT);
   pinMode (boton,INPUT);
